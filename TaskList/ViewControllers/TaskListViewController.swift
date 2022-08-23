@@ -9,7 +9,7 @@ import UIKit
 
 class TaskListViewController: UITableViewController {
     
-    private let viewContext = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+    private let viewContext = StorageManager.shared.persistentContainer.viewContext
     
     private let cellID = "task"
     private var taskList: [Task] = []
@@ -49,7 +49,7 @@ class TaskListViewController: UITableViewController {
     }
     
     @objc private func addNewTask() {
-        showAlert(withTitle: "New Task", andMessage: "What do you want to do?")
+        showSaveAlert(withTitle: "New Task", andMessage: "What do you want to do?")
     }
     
     private func fetchData() {
@@ -62,7 +62,7 @@ class TaskListViewController: UITableViewController {
         }
     }
     
-    private func showAlert(withTitle title: String, andMessage message: String) {
+    private func showSaveAlert(withTitle title: String, andMessage message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         let saveAction = UIAlertAction(title: "Save", style: .default) { [unowned self] _ in
             guard let task = alert.textFields?.first?.text, !task.isEmpty else { return }
@@ -73,6 +73,24 @@ class TaskListViewController: UITableViewController {
         alert.addAction(cancelAction)
         alert.addTextField { textField in
             textField.placeholder = "New Task"
+        }
+        
+        present(alert, animated: true)
+    }
+    
+    private func showEditAlert(for row: Int, withTitle title: String, andMessage message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        let saveAction = UIAlertAction(title: "Save", style: .default) { [unowned self] _ in
+            guard let task = alert.textFields?.first?.text, !task.isEmpty else { return }
+            taskList[row].title = task
+            tableView.reloadData()
+        }
+        let cancelAction = UIAlertAction(title: "Cancel", style: .destructive)
+        alert.addAction(saveAction)
+        alert.addAction(cancelAction)
+        alert.addTextField { [unowned self] textField in
+            textField.placeholder = "Task"
+            textField.text = taskList[row].title
         }
         
         present(alert, animated: true)
@@ -109,4 +127,24 @@ extension TaskListViewController {
         cell.contentConfiguration = content
         return cell
     }
+    
+    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            viewContext.delete(taskList.remove(at: indexPath.row))
+            tableView.deleteRows(at: [indexPath], with: .fade)
+            
+            if viewContext.hasChanges {
+                do {
+                    try viewContext.save()
+                } catch let error {
+                    print(error)
+                }
+            }
+        }
+    }
+    
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        showEditAlert(for: indexPath.row, withTitle: "Edit Task", andMessage: "change '\(taskList[indexPath.row].title ?? "")' task to:")
+    }
+
 }
